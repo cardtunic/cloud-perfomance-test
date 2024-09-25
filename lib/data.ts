@@ -34,6 +34,8 @@ export async function signup(username: string) {
     httpOnly: true,
     sameSite: "lax",
   });
+
+  return rows[0] as User;
 }
 
 export async function submit(

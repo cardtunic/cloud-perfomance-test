@@ -8,21 +8,39 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 export async function signup(formData: FormData) {
-  return await actionHandler(async () => {
-    const schema = z.object({
-      username: z
-        .string()
-        .min(3, "Nome inválido")
-        .refine(async (name) => {
-          const user = await data.getUserByName(name);
-          return !user;
-        }),
-    });
+  return await actionHandler(
+    async () => {
+      const schema = z.object({
+        username: z
+          .string()
+          .min(3, "Nome inválido")
+          .refine(
+            async (name) => {
+              const user = await data.getUserByName(name);
+              return !user;
+            },
+            {
+              message: "Esse nome já está sendo utilizado",
+            }
+          ),
+      });
 
-    const userData = await schema.parseAsync(Object.fromEntries(formData));
+      const userData = await schema.parseAsync(Object.fromEntries(formData));
 
-    await data.signup(userData.username);
-  });
+      const user = await data.signup(userData.username);
+
+      cookies().set("user_id", user.id.toString(), {
+        path: "/",
+        maxAge: 60 * 60 * 24 * 30,
+        httpOnly: true,
+        sameSite: "lax",
+      });
+    },
+    undefined,
+    () => {
+      redirect("/");
+    }
+  );
 }
 
 export async function submit(

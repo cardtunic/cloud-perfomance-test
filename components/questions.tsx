@@ -10,12 +10,13 @@ import clsx from "clsx";
 import { AlarmClock, ArrowRight, CheckCircle } from "lucide-react";
 import React from "react";
 
+const QUESTION_TIMER = 30;
+
 export default function Questions({
   questions,
 }: {
   questions: QuestionType[];
 }) {
-  const state = useQuestionsStore((state) => state);
   const currentQuestion = useQuestionsStore((state) => state.currentQuestion);
   const selectedAnswer = useQuestionsStore((state) => state.selectedAnswer);
   const answers = useQuestionsStore((state) => state.answers);
@@ -33,7 +34,7 @@ export default function Questions({
       nextQuestion();
       clearInterval(timerInterval.current);
       timerInterval.current = undefined;
-      setTimer(30);
+      setTimer(QUESTION_TIMER);
 
       return;
     }
@@ -41,7 +42,7 @@ export default function Questions({
     const testDuration =
       new Date().getSeconds() - (testStartedAt.getSeconds() as number);
 
-    const testTimeLeft = 30 * questions.length - testDuration;
+    const testTimeLeft = QUESTION_TIMER * questions.length - testDuration;
 
     await submit([...answers, selectedAnswer], testDuration, testTimeLeft);
   }
@@ -60,7 +61,7 @@ export default function Questions({
 
   const alreadyChangedQuestion = React.useRef<boolean>(false);
   const timerInterval = React.useRef<NodeJS.Timeout>();
-  const [timer, setTimer] = React.useState<number>(5);
+  const [timer, setTimer] = React.useState<number>(QUESTION_TIMER);
 
   React.useEffect(() => {
     if (!timerInterval.current) {
@@ -80,7 +81,7 @@ export default function Questions({
             clearInterval(timerInterval.current);
             timerInterval.current = undefined;
 
-            return 30;
+            return QUESTION_TIMER;
           }
 
           alreadyChangedQuestion.current = false;
@@ -115,7 +116,7 @@ export default function Questions({
               }
             )}
             style={{
-              width: `${Math.floor((timer / 30) * 100)}%`,
+              width: `${Math.floor((timer / QUESTION_TIMER) * 100)}%`,
             }}
           ></div>
         </div>
