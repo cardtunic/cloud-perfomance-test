@@ -27,7 +27,7 @@ export default function Questions({
     action: actions.submit,
   });
 
-  const [testStartedAt] = React.useState<Date>(new Date());
+  const [testStartedAt] = React.useState<number>(Date.now());
 
   async function handleSubmit() {
     if (!isLastQuestion) {
@@ -39,8 +39,11 @@ export default function Questions({
       return;
     }
 
-    const testDuration =
-      new Date().getSeconds() - (testStartedAt.getSeconds() as number);
+    const testDuration = Math.floor((Date.now() - testStartedAt) / 1000);
+
+    console.log(testStartedAt);
+    console.log(Date.now());
+    console.log((Date.now() - testStartedAt) / 1000);
 
     const testTimeLeft = QUESTION_TIMER * questions.length - testDuration;
 
