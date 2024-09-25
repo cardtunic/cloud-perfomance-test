@@ -1,38 +1,71 @@
-import { SignupData } from "@/lib/definitions";
+import { Answer, AnswerStatus, RankEntry, User } from "@/lib/definitions";
 import { sql } from "@vercel/postgres";
-import { SafeParseSuccess } from "zod";
+import { cookies } from "next/headers";
 
-async function findByPhoneOrEmail(phone: string, email: string) {
-  try {
-    const { rows: phoneRows } =
-      await sql`SELECT * FROM cadastros WHERE phone = ${phone}`;
-    const { rows: emailRows } =
-      await sql`SELECT * FROM cadastros WHERE email = ${email}`;
+export async function getCurrentUser() {
+  const userId = cookies().get("user_id")?.value;
 
-    const result: Record<string, boolean> = {};
-
-    if (phoneRows[0]) result.phone = true;
-    if (emailRows[0]) result.email = true;
-
-    return result;
-  } catch (error) {
-    console.error(error);
+  if (!userId) {
+    return null;
   }
+
+  const { rows } = await sql`SELECT * FROM users WHERE id = ${userId}`;
+  return rows[0] as User;
 }
 
-async function signup({ data }: SafeParseSuccess<SignupData>) {
-  try {
-    await sql`INSERT INTO cadastros (email, phone, name, areas) VALUES (${
-      data.email
-    }, ${data.phone}, ${data.name}, ARRAY [${JSON.stringify(data.areas)}])`;
-  } catch (error) {
-    console.error(error);
-  }
+export async function getUserByName(username: string) {
+  const { rows } = await sql`SELECT * FROM users WHERE username = ${username}`;
+  return rows[0] as User;
 }
 
-const data = {
-  signup,
-  findByPhoneOrEmail,
-};
+export async function getUserAnswers(userId: number) {
+  const { rows } = await sql`SELECT * FROM answers WHERE user_id = ${userId}`;
 
-export default data;
+  return rows as Answer[];
+}
+
+export async function signup(username: string) {
+  const { rows } =
+    await sql`INSERT INTO users (username) VALUES (${username}) RETURNING *`;
+
+  cookies().set("user_id", rows[0].id.toString(), {
+    path: "/",
+    maxAge: 60 * 60 * 24 * 30,
+    httpOnly: true,
+    sameSite: "lax",
+  });
+}
+
+export async function submit(answers: Answer[], testTimeLeft: number) {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return { errors: { user: ["Não está logado"] } };
+  }
+
+  const correctAnswers = answers.filter(
+    (answer) => answer.status === AnswerStatus.CORRECT
+  );
+
+  const points = correctAnswers.length * testTimeLeft;
+
+  await sql.query(`
+    INSERT INTO answers (user_id, question, answer, correct_answer, status)
+    VALUES ${answers
+      .map(
+        (answer) =>
+          `(${user.id}, '${answer.question}', '${answer.answer}', '${answer.correct_answer}', '${answer.status}')`
+      )
+      .join(", ")}
+    RETURNING *;
+  `);
+
+  await sql`INSERT INTO ranking (user_id, points) VALUES (${user.id}, ${points})`;
+}
+
+export async function getRanking() {
+  const { rows } =
+    await sql`SELECT ranking.points as points, users.username as username FROM ranking JOIN users ON users.id = ranking.user_id ORDER BY points DESC`;
+
+  return rows as RankEntry[];
+}

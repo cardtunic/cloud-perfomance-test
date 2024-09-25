@@ -1,97 +1,45 @@
 "use server";
 
-import data from "@/lib/data";
-import { ValidationError } from "@/lib/definitions";
+import actionHandler from "@/lib/action-handler";
+import * as data from "@/lib/data";
+import { Answer } from "@/lib/definitions";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
 export async function signup(formData: FormData) {
-  const validator = z.object({
-    email: z.string().email(),
-    name: z.string(),
-    phone: z
-      .string()
-      .min(11, "Esse número de telefone não é válido")
-      .max(11, "Esse número de telefone não é válido"),
-    areas: z.array(z.string()).refine(
-      (items) => {
-        if (new Set(items).size !== items.length) {
-          return false;
-        }
+  return await actionHandler(async () => {
+    const schema = z.object({
+      username: z
+        .string()
+        .min(3, "Nome inválido")
+        .refine(async (name) => {
+          const user = await data.getUserByName(name);
+          return !user;
+        }),
+    });
 
-        const acceptedAreas = [
-          "certificado-digital",
-          "bdmg",
-          "sindvagas",
-          "cursos",
-          "palestras-eventos",
-          "unimed",
-          "sindmais",
-          "sindbank",
-        ];
+    const userData = await schema.parseAsync(Object.fromEntries(formData));
 
-        return items.every((item) => acceptedAreas.includes(item));
-      },
-      {
-        message: "Opções selecionadas inválidas",
-      }
-    ),
+    await data.signup(userData.username);
   });
+}
 
-  const signupData = await validator.safeParse({
-    ...Object.fromEntries(formData),
-    phone: formData
-      .get("phone")
-      ?.toString()
-      .replace(/[^0-9]/g, ""),
-    areas: formData.getAll("area"),
-  });
+export async function submit(answers: Answer[], testTimeLeft: number) {
+  return await actionHandler(
+    async () => {
+      await data.submit(answers, testTimeLeft);
+    },
+    undefined,
+    () => {
+      cookies().set("answered", "true", {
+        path: "/",
+        maxAge: 60 * 60 * 24 * 30,
+        httpOnly: true,
+        sameSite: "lax",
+      });
 
-  if (!signupData.success) {
-    return { errors: signupData.error.flatten().fieldErrors };
-  }
-
-  const result = await data.findByPhoneOrEmail(
-    signupData.data.phone,
-    signupData.data.email
+      redirect("/results");
+    }
   );
-
-  if (result && Object.keys(result).length > 0) {
-    const errors: ValidationError = {};
-
-    if (result.phone)
-      errors.phone = ["Esse número de telefone já está cadastrado"];
-    if (result.email) errors.email = ["Esse email já está cadastrado"];
-
-    return { errors };
-  }
-
-  await data.signup(signupData);
-
-  cookies().set("logged", "true", {
-    path: "/",
-    maxAge: 60 * 60 * 24 * 30,
-    httpOnly: true,
-    sameSite: "lax",
-  });
-
-  redirect("/");
-}
-
-export async function setResults() {
-  cookies().set("answered", "true", {
-    path: "/",
-    maxAge: 60 * 60 * 24 * 30,
-    httpOnly: true,
-    sameSite: "lax",
-  });
-
-  redirect("/results");
-}
-
-export async function clearResults() {
-  cookies().delete("answered");
-
-  redirect("/");
 }

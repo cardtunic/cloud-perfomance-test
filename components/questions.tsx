@@ -3,89 +3,131 @@
 import Question from "@/components/question";
 import { Button } from "@/components/ui/button";
 import useServerAction from "@/hooks/useServerAction";
-import { setResults } from "@/lib/actions";
-import { QuestionData } from "@/lib/definitions";
-import { ArrowRight, CheckCircle } from "lucide-react";
-import { useRouter } from "next/navigation";
+import * as actions from "@/lib/actions";
+import type { Question as QuestionType } from "@/lib/definitions";
+import { useQuestionsStore } from "@/store";
+import clsx from "clsx";
+import { AlarmClock, ArrowRight, CheckCircle } from "lucide-react";
 import React from "react";
 
 export default function Questions({
   questions,
 }: {
-  questions: QuestionData[];
+  questions: QuestionType[];
 }) {
-  const [answers, setAnswers] = React.useState<
-    {
-      question: string;
-      answer: string;
-    }[]
-  >([]);
+  const state = useQuestionsStore((state) => state);
+  const currentQuestion = useQuestionsStore((state) => state.currentQuestion);
+  const selectedAnswer = useQuestionsStore((state) => state.selectedAnswer);
+  const answers = useQuestionsStore((state) => state.answers);
 
-  const [currentQuestion, setCurrentQuestion] = React.useState<number>(0);
+  const nextQuestion = useQuestionsStore((state) => state.nextQuestion);
 
-  const [isAnswered, setIsAnswered] = React.useState<boolean>(false);
-
-  const { push } = useRouter();
-
-  function handleChange(answer: string, question: string) {
-    setAnswers((prevAnswers) => {
-      const newAnswers = [
-        ...prevAnswers.filter((a) => a.question !== question),
-        { question, answer },
-      ];
-
-      localStorage.setItem("answers", JSON.stringify(newAnswers));
-
-      return newAnswers;
-    });
-    setIsAnswered(true);
-  }
-
-  const { pending, dispatchAction } = useServerAction({
-    action: setResults,
+  const { pending, dispatchAction: submit } = useServerAction({
+    action: actions.submit,
   });
+
+  const [testStartedAt] = React.useState<Date>(new Date());
+
+  async function handleSubmit() {
+    console.log(state);
+
+    if (!isLastQuestion) {
+      clearInterval(timerInterval.current);
+      timerInterval.current = undefined;
+      setTimer(30);
+
+      nextQuestion();
+      return;
+    }
+
+    const testDuration =
+      new Date().getSeconds() - (testStartedAt.getSeconds() as number);
+
+    const testTimeLeft = 30 * questions.length - testDuration;
+
+    await submit(answers, testTimeLeft);
+  }
 
   const questionsComponentes = React.useMemo(() => {
     return questions.map((question, i) => (
       <Question
         key={`question-${question.id}`}
-        number={i + 1}
+        questionNumber={i}
         question={question}
-        handleChange={handleChange}
       />
     ));
   }, []);
 
   const isLastQuestion = currentQuestion === questions.length - 1;
 
+  const alreadyChangedQuestion = React.useRef<boolean>(false);
+  const timerInterval = React.useRef<NodeJS.Timeout>();
+  const [timer, setTimer] = React.useState<number>(30);
+
+  React.useEffect(() => {
+    if (!timerInterval.current) {
+      timerInterval.current = setInterval(() => {
+        setTimer((prev) => {
+          if (prev === 0) {
+            if (!alreadyChangedQuestion.current) {
+              nextQuestion();
+              alreadyChangedQuestion.current = true;
+            }
+
+            clearInterval(timerInterval.current);
+            timerInterval.current = undefined;
+
+            return 30;
+          }
+
+          alreadyChangedQuestion.current = false;
+
+          return prev - 1;
+        });
+      }, 1000);
+    }
+  }, [currentQuestion]);
+
   return (
-    <div className="flex flex-col w-full h-full gap-12">
-      <div className="w-full flex items-center gap-4">
-        <div className="w-full h-4 rounded-full bg-primary/50 relative">
+    <div className="flex flex-col w-full h-full gap-8">
+      <div
+        className={clsx("w-full flex items-center gap-5 mb-8", {
+          "animate-[shake_1s_infinite]": timer < 5,
+        })}
+      >
+        <div
+          className={clsx("w-full h-4 rounded-full relative", {
+            "bg-green-500/50": timer > 15,
+            "bg-yellow-500/50": timer >= 5 && timer <= 15,
+            "bg-red-500/50": timer < 5,
+          })}
+        >
           <div
-            className={`absolute left-0 top-0 h-4 bg-primary z-10 rounded-full flex items-center`}
+            className={clsx(
+              `absolute left-0 top-0 h-4 z-10 rounded-full flex items-center`,
+              {
+                "bg-green-500/50": timer > 15,
+                "bg-yellow-500/50": timer >= 5 && timer <= 15,
+                "bg-red-500/50": timer < 5,
+              }
+            )}
             style={{
-              width: `${Math.floor(
-                (currentQuestion + 1) * (100 / questions.length)
-              )}%`,
+              width: `${Math.floor((timer / 30) * 100)}%`,
             }}
           ></div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2">
+          <AlarmClock className="h-[1.5em] w-[1.5em]" />
+          <p>{timer}s</p>
         </div>
       </div>
       {questionsComponentes[currentQuestion]}
       <Button
         variant="accent"
         className="w-full"
-        onClick={() => {
-          if (!isLastQuestion) {
-            setCurrentQuestion((prev) => prev + 1);
-            setIsAnswered(false);
-            return;
-          }
-
-          dispatchAction();
-        }}
-        disabled={!isAnswered}
+        onClick={handleSubmit}
+        disabled={!selectedAnswer}
         isLoading={pending}
       >
         {isLastQuestion ? (
