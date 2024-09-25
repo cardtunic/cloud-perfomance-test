@@ -30,6 +30,7 @@ export type User = {
 export type RankEntry = {
   username: string;
   points: number;
+  test_duration: number;
 };
 
 export interface ValidationError extends Record<string, string[]> {}

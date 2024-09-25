@@ -29,14 +29,12 @@ export default function Questions({
   const [testStartedAt] = React.useState<Date>(new Date());
 
   async function handleSubmit() {
-    console.log(state);
-
     if (!isLastQuestion) {
+      nextQuestion();
       clearInterval(timerInterval.current);
       timerInterval.current = undefined;
       setTimer(30);
 
-      nextQuestion();
       return;
     }
 
@@ -45,7 +43,7 @@ export default function Questions({
 
     const testTimeLeft = 30 * questions.length - testDuration;
 
-    await submit(answers, testTimeLeft);
+    await submit([...answers, selectedAnswer], testDuration, testTimeLeft);
   }
 
   const questionsComponentes = React.useMemo(() => {
@@ -62,7 +60,7 @@ export default function Questions({
 
   const alreadyChangedQuestion = React.useRef<boolean>(false);
   const timerInterval = React.useRef<NodeJS.Timeout>();
-  const [timer, setTimer] = React.useState<number>(30);
+  const [timer, setTimer] = React.useState<number>(5);
 
   React.useEffect(() => {
     if (!timerInterval.current) {
@@ -70,7 +68,12 @@ export default function Questions({
         setTimer((prev) => {
           if (prev === 0) {
             if (!alreadyChangedQuestion.current) {
-              nextQuestion();
+              if (questions.length === currentQuestion) {
+                nextQuestion();
+              } else {
+                handleSubmit();
+              }
+
               alreadyChangedQuestion.current = true;
             }
 
@@ -127,7 +130,7 @@ export default function Questions({
         variant="accent"
         className="w-full"
         onClick={handleSubmit}
-        disabled={!selectedAnswer}
+        disabled={selectedAnswer.answer.length === 0}
         isLoading={pending}
       >
         {isLastQuestion ? (

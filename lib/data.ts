@@ -36,7 +36,11 @@ export async function signup(username: string) {
   });
 }
 
-export async function submit(answers: Answer[], testTimeLeft: number) {
+export async function submit(
+  answers: Answer[],
+  testDuration: number,
+  testTimeLeft: number
+) {
   const user = await getCurrentUser();
 
   if (!user) {
@@ -60,12 +64,12 @@ export async function submit(answers: Answer[], testTimeLeft: number) {
     RETURNING *;
   `);
 
-  await sql`INSERT INTO ranking (user_id, points) VALUES (${user.id}, ${points})`;
+  await sql`INSERT INTO ranking (user_id, points, test_duration) VALUES (${user.id}, ${points}, ${testDuration})`;
 }
 
 export async function getRanking() {
   const { rows } =
-    await sql`SELECT ranking.points as points, users.username as username FROM ranking JOIN users ON users.id = ranking.user_id ORDER BY points DESC`;
+    await sql`SELECT ranking.points as points, ranking.test_duration as test_duration, users.username as username FROM ranking JOIN users ON users.id = ranking.user_id ORDER BY points DESC`;
 
   return rows as RankEntry[];
 }

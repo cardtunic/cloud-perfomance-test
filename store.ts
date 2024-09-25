@@ -5,13 +5,13 @@ import { create } from "zustand";
 type QuestionsState = {
   questions: Question[];
   currentQuestion: number;
-  selectedAnswer: Answer | null;
+  selectedAnswer: Answer;
   answers: Answer[];
 };
 
 type QuestionsActions = {
   nextQuestion: () => void;
-  setSelectedAnswer: (answer: Answer | null) => void;
+  setSelectedAnswer: (answer: Answer) => void;
 };
 
 type QuestionStore = QuestionsState & QuestionsActions;
@@ -20,7 +20,12 @@ const initialState: QuestionsState = {
   //@ts-ignore
   questions,
   currentQuestion: 0,
-  selectedAnswer: null,
+  selectedAnswer: {
+    question: questions[0].question,
+    answer: "",
+    correct_answer: questions[0].answers[questions[0].correctAnswer],
+    status: AnswerStatus.TIMEOUT,
+  },
   answers: [],
 };
 
@@ -28,22 +33,22 @@ export const useQuestionsStore = create<QuestionStore>()((set, get) => ({
   ...initialState,
   nextQuestion: () => {
     set((state) => {
-      const currentQuestion = state.questions[state.currentQuestion];
-      const correctAnswer =
-        currentQuestion.answers[currentQuestion.correctAnswer];
+      const nextQuestion = state.questions[state.currentQuestion + 1];
+      const nextCorrectAnswer =
+        nextQuestion.answers[nextQuestion.correctAnswer];
 
-      const selectedAnswer = state.selectedAnswer ?? {
-        question: currentQuestion.question,
-        answer: "Não respondeu",
-        correct_answer: correctAnswer,
-        status: AnswerStatus.TIMEOUT,
-      };
+      const selectedAnswer = state.selectedAnswer;
 
       return {
         ...state,
         currentQuestion: state.currentQuestion + 1,
         answers: [...state.answers, selectedAnswer],
-        selectedAnswer: null,
+        selectedAnswer: {
+          question: nextQuestion.question,
+          answer: "",
+          correct_answer: nextCorrectAnswer,
+          status: AnswerStatus.TIMEOUT,
+        },
       };
     });
   },

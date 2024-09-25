@@ -2,10 +2,10 @@
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import type { RankEntry } from "@/lib/definitions";
+import { AnswerStatus, type Answer, type RankEntry } from "@/lib/definitions";
 import { formatInteger, formatSeconds } from "@/lib/utils";
 import clsx from "clsx";
-import { ExternalLink } from "lucide-react";
+import { Check, Clock, ExternalLink, X } from "lucide-react";
 
 export default function Results({
   ranking,
@@ -17,6 +17,7 @@ export default function Results({
     points: number;
     correctAnswers: number;
     testDuration: number;
+    answers: Answer[];
   };
 }) {
   console.log(userResults);
@@ -38,7 +39,7 @@ export default function Results({
 
           <p className="text-foreground/70 w-full sm:w-[40%] text-center">
             Você acertou <b>{userResults.correctAnswers}</b> pergunta
-            {userResults.correctAnswers > 1 && "s"} e finalizou o teste em{" "}
+            {userResults.correctAnswers === 1 ? "" : "s"} e finalizou o teste em{" "}
             <b>{formatSeconds(userResults.testDuration)} minutos</b>
           </p>
         </div>
@@ -51,7 +52,22 @@ export default function Results({
             </Button>
           </DialogTrigger>
 
-          <DialogContent>oi</DialogContent>
+          <DialogContent className="flex flex-col gap-4 w-full max-h-[80vh] overflow-auto ">
+            <div className="mb-4">
+              <h2 className="text-xl font-semibold m-0">Suas respostas</h2>
+              <p className="text-foreground/50 m-0">
+                Veja seus erros e acertos
+              </p>
+            </div>
+
+            {userResults.answers.map((answer, i) => (
+              <UserAnswer
+                key={`user-nswer-${i}`}
+                answer={answer}
+                questioNumber={i + 1}
+              />
+            ))}
+          </DialogContent>
         </Dialog>
 
         <div className="grow flex flex-col gap-4 w-full">
@@ -67,6 +83,119 @@ export default function Results({
         </div>
       </>
     </main>
+  );
+}
+
+function UserAnswer({
+  answer,
+  questioNumber,
+}: {
+  answer: Answer;
+  questioNumber: number;
+}) {
+  return (
+    <div
+      className={clsx(
+        "flex flex-col gap-5 border border-border rounded-md p-4 ",
+        {
+          "border-green-500/20 bg-green-500/5": answer.status === "correct",
+          "border-red-500/20 bg-red-500/5": answer.status === "wrong",
+          "border-gray-500/20 bg-gray-500/5": answer.status === "timeout",
+        }
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <div
+          className={clsx(
+            "w-8 h-8 rounded-full flex justify-center items-center shrink-0",
+            {
+              "bg-green-500": answer.status === "correct",
+              "bg-red-500": answer.status === "wrong",
+              "bg-gray-500": answer.status === "timeout",
+            }
+          )}
+        >
+          {answer.status === "correct" ? (
+            <Check className="w-5 h-5 text-white" />
+          ) : answer.status === "wrong" ? (
+            <X className="w-5 h-5 text-white" />
+          ) : (
+            <Clock className="w-5 h-5 text-white" />
+          )}
+        </div>
+
+        <p className="font-semibold text-lg leading-tight">
+          {questioNumber}. {answer.question}
+        </p>
+      </div>
+
+      {answer.status !== AnswerStatus.TIMEOUT && (
+        <div className="flex flex-col gap-1">
+          <p className="text-foreground/50 text-sm">Sua resposta</p>
+          <p className="leading-tight font-medium text-foreground">
+            {answer.answer}
+          </p>
+        </div>
+      )}
+
+      {answer.status !== AnswerStatus.CORRECT && (
+        <div className="flex flex-col gap-1">
+          <p className="text-foreground/50 text-sm">Resposta correta</p>
+          <p className="leading-tight font-medium text-foreground">
+            {answer.correct_answer}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CorrectUserAnswer({ answer }: { answer: Answer }) {
+  return (
+    <div className="flex flex-col gap-5 border-2 border-green-500 rounded-md p-4 bg-green-500/10">
+      <div className="flex items-center gap-2">
+        <div className="w-6 h-6 rounded-full flex justify-center items-center shrink-0 bg-green-500">
+          <Check className="w-4 h-4 text-white" />
+        </div>
+
+        <p className="font-semibold text-lg">{answer.question}</p>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <p className="text-foreground/50 text-sm">Sua resposta</p>
+        <p className="leading-tight font-medium text-foreground">
+          {answer.answer}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function WrongUserAnswer({ answer }: { answer: Answer }) {
+  return (
+    <div className="flex flex-col gap-2 border-border border rounded-md p-4">
+      <p className="text-lg font-semibold text-foreground">{answer.question}</p>
+
+      <p className="text-lg font-semibold text-foreground">{answer.answer}</p>
+
+      <p className="text-lg font-semibold text-foreground">
+        {answer.correct_answer}
+      </p>
+    </div>
+  );
+}
+
+function TimeoutUserAnswer({ answer }: { answer: Answer }) {
+  return (
+    <div className="flex flex-col gap-2 border-border border rounded-md p-4">
+      <p className="text-lg font-semibold text-foreground">{answer.question}</p>
+
+      <p className="text-lg font-semibold text-foreground">{answer.answer}</p>
+
+      <p className="text-lg font-semibold text-foreground">
+        {answer.correct_answer}
+      </p>
+    </div>
   );
 }
 

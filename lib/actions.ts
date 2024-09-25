@@ -25,10 +25,14 @@ export async function signup(formData: FormData) {
   });
 }
 
-export async function submit(answers: Answer[], testTimeLeft: number) {
+export async function submit(
+  answers: Answer[],
+  testDuration: number,
+  testTimeLeft: number
+) {
   return await actionHandler(
     async () => {
-      await data.submit(answers, testTimeLeft);
+      await data.submit(answers, testDuration, testTimeLeft);
     },
     undefined,
     () => {
